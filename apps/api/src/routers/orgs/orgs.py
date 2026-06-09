@@ -237,7 +237,7 @@ async def api_get_org_users(
 async def api_join_an_org(
     request: Request,
     args: JoinOrg,
-    current_user: PublicUser = Depends(get_current_user),
+    current_user: PublicUser = Depends(get_authenticated_user),
     db_session: AsyncSession = Depends(get_db_session),
 ):
     """
