@@ -141,7 +141,7 @@ def _profile_from_claims(claims: dict[str, Any]) -> dict[str, Any]:
         "first_name": claims.get("first_name") or claims.get("given_name") or "",
         "last_name": claims.get("last_name") or claims.get("family_name") or "",
         "avatar_image": claims.get("image_url") or claims.get("picture") or "",
-        "email_verified": True,
+        "email_verified": claims.get("email_verified") is True,
     }
 
 
@@ -182,7 +182,7 @@ async def get_clerk_user_profile(clerk_user_id: str) -> dict[str, Any] | None:
         "first_name": data.get("first_name") or "",
         "last_name": data.get("last_name") or "",
         "avatar_image": data.get("image_url") or "",
-        "email_verified": email_verified or bool(primary_email),
+        "email_verified": email_verified,
     }
 
 
@@ -244,9 +244,11 @@ async def get_or_create_user_from_clerk_claims(
         user.external_auth_provider = CLERK_PROVIDER
         user.external_auth_id = clerk_user_id
         user.signup_method = CLERK_PROVIDER
-        user.email_verified = bool(profile.get("email_verified", True))
+        user.email_verified = profile.get("email_verified") is True
         if user.email_verified and not user.email_verified_at:
             user.email_verified_at = now.isoformat()
+        elif not user.email_verified:
+            user.email_verified_at = None
         if profile.get("avatar_image") and not user.avatar_image:
             user.avatar_image = profile["avatar_image"]
         user.update_date = str(now)
@@ -262,8 +264,8 @@ async def get_or_create_user_from_clerk_claims(
             avatar_image=profile.get("avatar_image") or "",
             password="",
             user_uuid=f"user_{uuid4()}",
-            email_verified=bool(profile.get("email_verified", True)),
-            email_verified_at=now.isoformat(),
+            email_verified=profile.get("email_verified") is True,
+            email_verified_at=now.isoformat() if profile.get("email_verified") is True else None,
             signup_method=CLERK_PROVIDER,
             external_auth_provider=CLERK_PROVIDER,
             external_auth_id=clerk_user_id,

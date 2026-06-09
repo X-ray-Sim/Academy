@@ -196,6 +196,7 @@ async def api_create_user_with_orgid(
     """
     Create User with Org ID
     """
+    raise_clerk_credentials_disabled()
 
     # TODO(fix) : This is temporary, logic should be moved to service
     if (
@@ -233,6 +234,8 @@ async def api_create_user_with_orgid_and_invite(
     """
     Create User with Org ID and invite code
     """
+    raise_clerk_credentials_disabled()
+
     # Throttle invite-code guessing per IP+org. ``detail`` is a plain string
     # so the frontend's generic error path renders it as-is.
     is_allowed, retry_after = check_invite_acceptance_rate_limit(request, org_id)
@@ -284,6 +287,7 @@ async def api_create_user_without_org(
     """
     Create User
     """
+    raise_clerk_credentials_disabled()
     return await create_user_without_org(request, db_session, current_user, user_object)
 
 

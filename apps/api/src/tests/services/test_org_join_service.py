@@ -136,6 +136,72 @@ class TestOrgJoinService:
         assert result == "Great, You're part of the Organization"
 
     @pytest.mark.asyncio
+    async def test_join_org_open_rejects_anonymous_caller_for_real_user(
+        self, mock_request, db, org, anonymous_user
+    ):
+        user = await _make_user(db, id=17, user_uuid="user_17")
+        await _make_org_config(db, org, signup_mode="open", version="1.0")
+
+        with patch(
+            "src.services.orgs.join.check_limits_with_usage"
+        ), patch(
+            "src.services.orgs.join.get_org_join_mechanism",
+            new=AsyncMock(return_value="open"),
+        ), patch(
+            "src.services.orgs.join.increase_feature_usage"
+        ) as mock_increase:
+            with pytest.raises(HTTPException) as exc_info:
+                await join_org(
+                    mock_request,
+                    JoinOrg(org_id=org.id, user_id=user.user_uuid),
+                    anonymous_user,
+                    db,
+                )
+
+        assert exc_info.value.status_code == 401
+        mock_increase.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_join_org_open_rejects_authenticated_user_joining_as_another_user(
+        self, mock_request, db, org
+    ):
+        user_a = await _make_user(
+            db,
+            id=18,
+            username="user-a",
+            email="user-a@test.com",
+            user_uuid="user_18",
+        )
+        user_b = await _make_user(
+            db,
+            id=19,
+            username="user-b",
+            email="user-b@test.com",
+            user_uuid="user_19",
+        )
+        await _make_org_config(db, org, signup_mode="open", version="1.0")
+
+        with patch(
+            "src.services.orgs.join.check_limits_with_usage"
+        ), patch(
+            "src.services.orgs.join.get_org_join_mechanism",
+            new=AsyncMock(return_value="open"),
+        ), patch(
+            "src.services.orgs.join.increase_feature_usage"
+        ) as mock_increase:
+            with pytest.raises(HTTPException) as exc_info:
+                await join_org(
+                    mock_request,
+                    JoinOrg(org_id=org.id, user_id=user_b.user_uuid),
+                    user_a,
+                    db,
+                )
+
+        assert exc_info.value.status_code == 403
+        assert "authenticated user" in exc_info.value.detail
+        mock_increase.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_join_org_user_not_found(self, mock_request, db, org):
         await _make_org_config(db, org, signup_mode="open", version="1.0")
 
@@ -314,7 +380,7 @@ class TestOrgJoinService:
                     anonymous_user,
                     db,
                 )
-        assert denied_exc.value.status_code == 403
+        assert denied_exc.value.status_code == 401
 
     @pytest.mark.asyncio
     async def test_join_org_invite_only_missing_ids_and_open_missing_ids(
@@ -361,7 +427,7 @@ class TestOrgJoinService:
                     anonymous_user,
                     invite_db,
                 )
-        assert invite_exc.value.status_code == 403
+        assert invite_exc.value.status_code == 401
 
         with patch(
             "src.services.orgs.join.check_limits_with_usage"
@@ -376,4 +442,4 @@ class TestOrgJoinService:
                     anonymous_user,
                     open_db,
                 )
-        assert open_exc.value.status_code == 403
+        assert open_exc.value.status_code == 401

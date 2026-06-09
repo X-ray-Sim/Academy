@@ -64,6 +64,19 @@ async def join_org(
             detail="User not found",
         )
 
+    current_user_id = getattr(current_user, "id", None)
+    current_user_uuid = getattr(current_user, "user_uuid", None)
+    if isinstance(current_user, AnonymousUser):
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required to join an organization.",
+        )
+    if current_user_id != user.id or current_user_uuid != user.user_uuid:
+        raise HTTPException(
+            status_code=403,
+            detail="Join target must match the authenticated user.",
+        )
+
     # Check if user's email is verified
     if not user.email_verified:
         raise HTTPException(
