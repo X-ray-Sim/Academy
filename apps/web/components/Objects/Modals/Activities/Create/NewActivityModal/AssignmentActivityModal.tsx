@@ -6,7 +6,7 @@ import { useOrg } from '@components/Contexts/OrgContext'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/query/keys'
 import { createAssignment } from '@services/courses/assignments'
-import { useLHSession } from '@components/Contexts/LHSessionContext'
+import { useAuth } from '@components/Contexts/AuthContext'
 import { createActivity, deleteActivity } from '@services/courses/activities'
 import toast from 'react-hot-toast'
 import { useTranslation } from 'react-i18next'
@@ -27,7 +27,7 @@ import {
 function NewAssignment({ submitActivity, chapterId, course, closeModal }: any) {
   const { t } = useTranslation()
   const org = useOrg() as any
-  const session = useLHSession() as any
+  const { getAccessToken } = useAuth()
   const queryClient = useQueryClient()
   const cleanCourseUuid = (id: string) => id?.replace(/^course_/, '') ?? id
   const withUnpublishedActivities = course
@@ -47,6 +47,13 @@ function NewAssignment({ submitActivity, chapterId, course, closeModal }: any) {
   const handleSubmit = async (e: any) => {
     e.preventDefault()
     setIsSubmitting(true)
+    const accessToken = await getAccessToken()
+    if (!accessToken) {
+      toast.error(t('auth.login_required', 'You must be logged in to perform this action'))
+      setIsSubmitting(false)
+      return
+    }
+
     const activity = {
       name: activityName,
       chapter_id: chapterId,
@@ -60,7 +67,7 @@ function NewAssignment({ submitActivity, chapterId, course, closeModal }: any) {
       activity,
       chapterId,
       org?.id,
-      session.data?.tokens?.access_token
+      accessToken
     )
     const res = await createAssignment(
       {
@@ -78,7 +85,7 @@ function NewAssignment({ submitActivity, chapterId, course, closeModal }: any) {
         chapter_id: chapterId,
         activity_id: activity_res?.id,
       },
-      session.data?.tokens?.access_token
+      accessToken
     )
     const toast_loading = toast.loading(
       t('dashboard.assignments.modals.create.toasts.creating')
@@ -91,7 +98,7 @@ function NewAssignment({ submitActivity, chapterId, course, closeModal }: any) {
       toast.error(res.data.detail)
       await deleteActivity(
         activity_res.activity_uuid,
-        session.data?.tokens?.access_token
+        accessToken
       )
     }
 

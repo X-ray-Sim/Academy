@@ -11,6 +11,11 @@ import React, {
 } from 'react'
 import { useAuth as useClerkAuth, useClerk } from '@clerk/nextjs'
 import {
+  getJwtExpirationTime,
+  shouldRefreshClerkToken,
+  TOKEN_REFRESH_SKEW_MS,
+} from '@lib/auth/clerkToken'
+import {
   getAPIUrl,
   getLEARNHOUSE_TOP_DOMAIN_VAL,
 } from '@services/config/config'
@@ -129,13 +134,14 @@ async function fetchBackendSession(token: string): Promise<Session | null> {
   }
 
   const data = await response.json()
+  const expiresAt = getJwtExpirationTime(token)
   return {
     user: data.user,
     roles: data.roles,
     tokens: {
       access_token: token,
       refresh_token: undefined,
-      expiry: undefined,
+      expiry: expiresAt ?? undefined,
     },
   }
 }
@@ -187,7 +193,7 @@ export function SessionProvider({
       ))
 
       try {
-        const token = await getToken({ skipCache: Boolean(force) })
+        let token = await getToken({ skipCache: Boolean(force) })
 
         if (!token) {
           resetLocalSession()
@@ -195,10 +201,18 @@ export function SessionProvider({
         }
 
         const now = Date.now()
+        if (!force && shouldRefreshClerkToken(token, now)) {
+          const refreshedToken = await getToken({ skipCache: true })
+          if (refreshedToken) {
+            token = refreshedToken
+          }
+        }
+
         if (
           !force &&
           sessionCacheRef.current &&
           sessionCacheRef.current.token === token &&
+          !shouldRefreshClerkToken(token, now) &&
           now - sessionCacheRef.current.timestamp < SESSION_CACHE_TTL
         ) {
           setSession(sessionCacheRef.current.data)
@@ -238,7 +252,15 @@ export function SessionProvider({
     }
 
     try {
-      return await getToken()
+      let token = await getToken()
+      if (shouldRefreshClerkToken(token)) {
+        const refreshedToken = await getToken({ skipCache: true })
+        if (refreshedToken) {
+          token = refreshedToken
+        }
+      }
+
+      return token
     } catch (error) {
       console.error('Unable to read Clerk token:', error)
       return null
@@ -278,6 +300,27 @@ export function SessionProvider({
 
     return () => window.clearInterval(interval)
   }, [refetchInterval, refreshSession, status])
+
+  useEffect(() => {
+    if (status !== 'authenticated' || !accessToken) {
+      return undefined
+    }
+
+    const expiresAt = getJwtExpirationTime(accessToken)
+    if (!expiresAt) {
+      return undefined
+    }
+
+    const refreshDelay = Math.max(
+      expiresAt - Date.now() - TOKEN_REFRESH_SKEW_MS,
+      0,
+    )
+    const timeout = window.setTimeout(() => {
+      refreshSession(true)
+    }, refreshDelay)
+
+    return () => window.clearTimeout(timeout)
+  }, [accessToken, refreshSession, status])
 
   const handleSignIn = useCallback(async (
     _provider: string,

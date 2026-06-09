@@ -10,7 +10,7 @@ import { getOrganizationContextInfoWithoutCredentials } from '@services/organiza
 import { revalidateTags } from '@services/utils/ts/requests'
 import { Layers } from 'lucide-react'
 import { ArrowLeft } from '@phosphor-icons/react'
-import { useLHSession } from '@components/Contexts/LHSessionContext'
+import { useAuth } from '@components/Contexts/AuthContext'
 import { useRouter } from 'next/navigation'
 import React, { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -29,11 +29,18 @@ function NewActivityButton(props: NewActivityButtonProps) {
   const [selectedView, setSelectedView] = React.useState('home')
   const router = useRouter()
   const course = useCourse() as any
-  const session = useLHSession() as any;
-  const access_token = session?.data?.tokens?.access_token;
+  const { getAccessToken } = useAuth()
   const withUnpublishedActivities = course ? course.withUnpublishedActivities : false
   const queryClient = useQueryClient()
   const cleanCourseUuid = (id: string) => id?.replace(/^course_/, '') ?? id
+
+  const requireAccessToken = async () => {
+    const token = await getAccessToken()
+    if (!token) {
+      throw new Error(t('auth.login_required', 'You must be logged in to perform this action'))
+    }
+    return token
+  }
 
   const openNewActivityModal = async (chapterId: any) => {
     setSelectedView('home')
@@ -50,8 +57,9 @@ function NewActivityButton(props: NewActivityButtonProps) {
       props.orgslug,
       { revalidate: 1800 }
     )
+    const accessToken = await requireAccessToken()
     const toast_loading = toast.loading(t('dashboard.courses.structure.activity.toasts.creating'))
-    await createActivity(activity, props.chapterId, org.id, access_token)
+    await createActivity(activity, props.chapterId, org.id, accessToken)
     queryClient.invalidateQueries({ queryKey: queryKeys.courses.meta(cleanCourseUuid(course.courseStructure.course_uuid)) })
     toast.dismiss(toast_loading)
     toast.success(t('dashboard.courses.structure.activity.toasts.create_success'))
@@ -68,7 +76,8 @@ function NewActivityButton(props: NewActivityButtonProps) {
     chapterId: string
   ) => {
     toast.loading(t('dashboard.courses.structure.activity.toasts.uploading'))
-    await createFileActivity(file, type, activity, chapterId, access_token)
+    const accessToken = await requireAccessToken()
+    await createFileActivity(file, type, activity, chapterId, accessToken)
     queryClient.invalidateQueries({ queryKey: queryKeys.courses.meta(cleanCourseUuid(course.courseStructure.course_uuid)) })
     setNewActivityModal(false)
     toast.dismiss()
@@ -85,10 +94,11 @@ function NewActivityButton(props: NewActivityButtonProps) {
     chapterId: string
   ) => {
     const toast_loading = toast.loading(t('dashboard.courses.structure.activity.toasts.creating_uploading'))
+    const accessToken = await requireAccessToken()
     await createExternalVideoActivity(
       external_video_data,
       activity,
-      props.chapterId, access_token
+      props.chapterId, accessToken
     )
     queryClient.invalidateQueries({ queryKey: queryKeys.courses.meta(cleanCourseUuid(course.courseStructure.course_uuid)) })
     setNewActivityModal(false)
