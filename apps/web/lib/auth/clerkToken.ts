@@ -1,4 +1,4 @@
-export const TOKEN_REFRESH_SKEW_MS = 60_000
+export const TOKEN_REFRESH_SKEW_MS = 10_000
 
 function decodeBase64Url(value: string): string {
   const normalized = value.replace(/-/g, '+').replace(/_/g, '/')
@@ -30,4 +30,16 @@ export function shouldRefreshClerkToken(
   if (!expiresAt) return true
 
   return expiresAt - nowMs <= skewMs
+}
+
+export function getClerkTokenRefreshDelay(
+  token: string | null | undefined,
+  nowMs: number = Date.now(),
+  skewMs: number = TOKEN_REFRESH_SKEW_MS,
+): number | null {
+  const expiresAt = getJwtExpirationTime(token)
+  if (!expiresAt) return null
+
+  const delayMs = expiresAt - nowMs - skewMs
+  return delayMs > 0 ? delayMs : null
 }

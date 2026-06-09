@@ -11,9 +11,9 @@ import React, {
 } from 'react'
 import { useAuth as useClerkAuth, useClerk } from '@clerk/nextjs'
 import {
+  getClerkTokenRefreshDelay,
   getJwtExpirationTime,
   shouldRefreshClerkToken,
-  TOKEN_REFRESH_SKEW_MS,
 } from '@lib/auth/clerkToken'
 import {
   getAPIUrl,
@@ -306,15 +306,11 @@ export function SessionProvider({
       return undefined
     }
 
-    const expiresAt = getJwtExpirationTime(accessToken)
-    if (!expiresAt) {
+    const refreshDelay = getClerkTokenRefreshDelay(accessToken)
+    if (refreshDelay === null) {
       return undefined
     }
 
-    const refreshDelay = Math.max(
-      expiresAt - Date.now() - TOKEN_REFRESH_SKEW_MS,
-      0,
-    )
     const timeout = window.setTimeout(() => {
       refreshSession(true)
     }, refreshDelay)

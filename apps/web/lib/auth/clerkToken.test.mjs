@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 import {
+  getClerkTokenRefreshDelay,
   getJwtExpirationTime,
   shouldRefreshClerkToken,
   TOKEN_REFRESH_SKEW_MS,
@@ -43,4 +44,18 @@ test('keeps tokens that are outside the safety window', () => {
 test('refreshes malformed or missing tokens', () => {
   assert.equal(shouldRefreshClerkToken(null), true)
   assert.equal(shouldRefreshClerkToken('not-a-jwt'), true)
+})
+
+test('does not schedule automatic refresh loops inside the safety window', () => {
+  const now = 2_000_000
+  const token = makeToken({ exp: Math.floor((now + TOKEN_REFRESH_SKEW_MS - 1_000) / 1000) })
+
+  assert.equal(getClerkTokenRefreshDelay(token, now), null)
+})
+
+test('schedules automatic refresh before a token reaches the safety window', () => {
+  const now = 2_000_000
+  const token = makeToken({ exp: Math.floor((now + TOKEN_REFRESH_SKEW_MS + 120_000) / 1000) })
+
+  assert.equal(getClerkTokenRefreshDelay(token, now), 120_000)
 })
