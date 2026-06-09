@@ -45,6 +45,7 @@ from src.services.users.users import (
     update_user_password,
 )
 from src.services.courses.courses import get_user_courses
+from src.services.auth.clerk import CLERK_PROVIDER, get_auth_provider
 
 _get_redis_client = _get_redis_pool_client
 
@@ -53,6 +54,17 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 SESSION_CACHE_TTL = 600  # 10 minutes
+
+
+def raise_clerk_credentials_disabled() -> None:
+    if get_auth_provider() == CLERK_PROVIDER:
+        raise HTTPException(
+            status_code=410,
+            detail={
+                "code": "CLERK_AUTH_REQUIRED",
+                "message": "Password credentials are disabled. Use Clerk authentication.",
+            },
+        )
 
 
 def _get_session_cache(user_id: int) -> Optional[dict]:
@@ -448,6 +460,7 @@ async def api_update_user_password(
     """
     Update User Password
     """
+    raise_clerk_credentials_disabled()
     return await update_user_password(request, db_session, current_user, user_id, form)
 
 
@@ -485,6 +498,7 @@ async def api_change_password_with_reset_code_v2(
     """
     Update User Password with reset code (email in body).
     """
+    raise_clerk_credentials_disabled()
     if not body.email:
         raise HTTPException(status_code=422, detail="email is required")
 
@@ -526,6 +540,7 @@ async def api_change_password_with_reset_code(
     email: EmailStr,
     body: ResetPasswordRequest,
 ):
+    raise_clerk_credentials_disabled()
     # Rate limit: 5 attempts per 5 minutes per email
     is_allowed, retry_after = check_password_reset_rate_limit(email)
     if not is_allowed:
@@ -556,6 +571,7 @@ async def api_send_password_reset_email_v2(
     current_user: PublicUser = Depends(get_current_user),
     body: SendResetCodeRequest,
 ):
+    raise_clerk_credentials_disabled()
     return await send_reset_password_code(
         request, db_session, current_user, body.org_id, body.email
     )
@@ -580,6 +596,7 @@ async def api_send_password_reset_email(
     email: EmailStr,
     org_id: int,
 ):
+    raise_clerk_credentials_disabled()
     return await send_reset_password_code(
         request, db_session, current_user, org_id, email
     )
@@ -612,6 +629,7 @@ async def api_send_password_reset_email_platform_v2(
     current_user: PublicUser = Depends(get_current_user),
     body: SendPlatformResetCodeRequest,
 ):
+    raise_clerk_credentials_disabled()
     is_allowed, retry_after = check_password_reset_rate_limit(body.email)
     if not is_allowed:
         raise HTTPException(
@@ -641,6 +659,7 @@ async def api_send_password_reset_email_platform(
     current_user: PublicUser = Depends(get_current_user),
     email: EmailStr,
 ):
+    raise_clerk_credentials_disabled()
     is_allowed, retry_after = check_password_reset_rate_limit(email)
     if not is_allowed:
         raise HTTPException(
@@ -670,6 +689,7 @@ async def api_change_password_with_reset_code_platform_v2(
     current_user: PublicUser = Depends(get_current_user),
     body: PlatformResetPasswordRequest,
 ):
+    raise_clerk_credentials_disabled()
     if not body.email:
         raise HTTPException(status_code=422, detail="email is required")
     is_allowed, retry_after = check_password_reset_rate_limit(body.email)
@@ -702,6 +722,7 @@ async def api_change_password_with_reset_code_platform(
     email: EmailStr,
     body: PlatformResetPasswordRequest,
 ):
+    raise_clerk_credentials_disabled()
     is_allowed, retry_after = check_password_reset_rate_limit(email)
     if not is_allowed:
         raise HTTPException(

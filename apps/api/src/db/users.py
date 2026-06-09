@@ -54,6 +54,8 @@ class UserRead(UserBase):
     email_verified: bool = False
     last_login_at: Optional[str] = None
     signup_method: Optional[str] = None
+    external_auth_provider: Optional[str] = None
+    external_auth_id: Optional[str] = None
     is_superadmin: bool = False
 
 
@@ -135,6 +137,8 @@ class User(UserBase, table=True):
     last_login_at: Optional[str] = None
     last_login_ip: Optional[str] = None
     signup_method: Optional[str] = None
+    external_auth_provider: Optional[str] = Field(default=None, index=True)
+    external_auth_id: Optional[str] = Field(default=None, index=True)
     is_superadmin: bool = Field(default=False)
     password_changed_at: Optional[datetime] = Field(default=None)
     creation_date: str = ""

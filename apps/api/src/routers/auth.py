@@ -23,6 +23,7 @@ from src.security.auth import (
     JWT_REFRESH_COOKIE_NAME,
     JWT_COOKIE_NAME,
 )
+from src.services.auth.clerk import CLERK_PROVIDER, get_auth_provider
 from src.services.users.users import security_get_user
 from src.services.auth.utils import signWithGoogle
 from src.services.dev.dev import isDevModeEnabled
@@ -54,6 +55,16 @@ def get_token_expiry_ms() -> Optional[int]:
 
 
 router = APIRouter()
+
+
+def raise_clerk_auth_required():
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail={
+            "code": "CLERK_AUTH_REQUIRED",
+            "message": "Password and built-in OAuth credentials are disabled. Use Clerk authentication.",
+        },
+    )
 
 
 def get_cookie_domain_for_request(request: Request) -> str | None:
@@ -205,6 +216,9 @@ async def refresh(
     refresh cookie on every call; the old token's ``jti`` is marked consumed
     in Redis, and replay is treated as theft (all sessions revoked).
     """
+    if get_auth_provider() == CLERK_PROVIDER:
+        raise_clerk_auth_required()
+
     # Rate limit refresh endpoint to prevent brute force attacks
     is_allowed, retry_after = check_refresh_rate_limit(request)
     if not is_allowed:
@@ -319,6 +333,9 @@ async def login(
     password: str = Form(...),
     db_session: AsyncSession = Depends(get_db_session),
 ):
+    if get_auth_provider() == CLERK_PROVIDER:
+        raise_clerk_auth_required()
+
     # Step 1: Check rate limit (IP-based)
     is_allowed, retry_after = check_login_rate_limit(request)
     if not is_allowed:
@@ -444,6 +461,9 @@ async def third_party_login(
     current_user: AnonymousUser = Depends(get_current_user),
     db_session: AsyncSession = Depends(get_db_session),
 ):
+    if get_auth_provider() == CLERK_PROVIDER:
+        raise_clerk_auth_required()
+
     import logging
     import redis as _redis
     _logger = logging.getLogger(__name__)
@@ -598,6 +618,9 @@ async def api_verify_email(
     """
     Verify user email with token.
     """
+    if get_auth_provider() == CLERK_PROVIDER:
+        raise_clerk_auth_required()
+
     # Rate limit: 5 attempts per 5 minutes (keyed on email when provided, user_uuid otherwise)
     is_allowed, retry_after = check_email_verification_rate_limit(body.email or body.user_uuid)
     if not is_allowed:
@@ -642,6 +665,9 @@ async def api_resend_verification_email(
     """
     Resend verification email (rate limited).
     """
+    if get_auth_provider() == CLERK_PROVIDER:
+        raise_clerk_auth_required()
+
     result = await resend_verification_email(
         request=request,
         db_session=db_session,

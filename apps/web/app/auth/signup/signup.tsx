@@ -4,8 +4,6 @@ import React, { useEffect, useState } from 'react'
 import { AlertTriangle, CheckCircle, Loader2, Mail, Ticket, UserPlus, X } from 'lucide-react'
 import { useOrg } from '@components/Contexts/OrgContext'
 import UserAvatar from '@components/Objects/UserAvatar'
-import OpenSignUpComponent from './OpenSignup'
-import InviteOnlySignUpComponent from './InviteOnlySignUp'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { validateInviteCode } from '@services/organizations/invites'
 import { joinOrg } from '@services/organizations/orgs'
@@ -18,6 +16,7 @@ import FormLayout, {
   Input,
 } from '@components/Objects/StyledElements/Form/Form'
 import * as Form from '@radix-ui/react-form'
+import ClerkAuthPanel from '@components/Auth/ClerkAuthPanel'
 
 interface SignUpClientProps {
   org: any
@@ -52,7 +51,7 @@ function SignUpClient(props: SignUpClientProps) {
           <LoggedInJoinScreen inviteCode={inviteCode} org={props.org} />
         ) : (
           <div className="flex-1 flex flex-row">
-            <OpenSignUpComponent />
+            <ClerkAuthPanel mode="sign-up" org={props.org} inviteCode={inviteCode} />
           </div>
         ))}
       {joinMethod == 'inviteOnly' &&
@@ -61,7 +60,7 @@ function SignUpClient(props: SignUpClientProps) {
             <LoggedInJoinScreen inviteCode={inviteCode} org={props.org} />
           ) : (
             <div className="flex-1 flex flex-row">
-              <InviteOnlySignUpComponent inviteCode={inviteCode} />
+              <ClerkAuthPanel mode="sign-up" org={props.org} inviteCode={inviteCode} />
             </div>
           )
         ) : (

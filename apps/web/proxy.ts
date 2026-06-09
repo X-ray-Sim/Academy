@@ -1,4 +1,5 @@
 import { getAPIUrl } from './services/config/config'
+import { clerkMiddleware } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { isLocalhost as isLocalhostCheck } from './services/utils/ts/hostUtils'
@@ -225,7 +226,7 @@ export const config = {
   ],
 }
 
-export default async function proxy(req: NextRequest) {
+async function learnHouseProxy(req: NextRequest) {
   const instance = await getInstanceInfo()
   const { pathname, search } = req.nextUrl
   const fullhost = req.headers.get('host')
@@ -422,3 +423,5 @@ export default async function proxy(req: NextRequest) {
   setInstanceCookies(response, instance)
   return response
 }
+
+export default clerkMiddleware(async (_auth, req) => learnHouseProxy(req))

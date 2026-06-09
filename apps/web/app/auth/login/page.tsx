@@ -1,8 +1,9 @@
 import { getOrganizationContextInfo } from '@services/organizations/orgs'
 import { getOrgSlug } from '@services/org/orgResolution'
-import LoginClient from './login'
 import { Metadata } from 'next'
 import OrgNotFound from '@components/Objects/StyledElements/Error/OrgNotFound'
+import AuthLayout from '@components/Auth/AuthLayout'
+import ClerkAuthPanel from '@components/Auth/ClerkAuthPanel'
 
 export async function generateMetadata(): Promise<Metadata> {
   const orgslug = await getOrgSlug()
@@ -49,9 +50,11 @@ const Login = async () => {
   }
 
   return (
-    <div>
-      <LoginClient org={org}></LoginClient>
-    </div>
+    <AuthLayout org={org} welcomeText="Log in to">
+      <div className="flex-1 flex flex-row">
+        <ClerkAuthPanel mode="sign-in" org={org} />
+      </div>
+    </AuthLayout>
   )
 }
 

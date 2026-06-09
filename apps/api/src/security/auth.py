@@ -13,6 +13,13 @@ from jwt.exceptions import PyJWTError
 from datetime import datetime, timedelta, timezone
 from src.services.users.users import security_verify_password
 from src.security.security import ALGORITHM, SECRET_KEY, security_hash_password
+from src.services.auth.clerk import (
+    CLERK_PROVIDER,
+    get_auth_provider,
+    get_clerk_user_profile,
+    get_or_create_user_from_clerk_claims,
+    verify_clerk_session_token,
+)
 
 
 # SECURITY: Pre-computed Argon2 hash of an unknown password. Verifying a
@@ -386,7 +393,25 @@ async def get_current_user(
             return api_token_user
         raise credentials_exception
 
-    # Step 2: Fall back to JWT logic using PyJWT
+    if get_auth_provider() == CLERK_PROVIDER:
+        token = extract_jwt_from_request(request)
+        if token:
+            claims = await verify_clerk_session_token(token, request)
+            if claims:
+                user = await get_or_create_user_from_clerk_claims(
+                    request,
+                    db_session,
+                    claims,
+                    get_clerk_user_profile,
+                )
+                if user is not None:
+                    public_user = PublicUser(**user.model_dump())
+                    request.state.user = public_user
+                    request.state.is_api_token = False
+                    return public_user
+        return AnonymousUser()
+
+    # Step 2: Fall back to legacy LearnHouse JWT logic using PyJWT
     token = extract_jwt_from_request(request)
     username = None
 

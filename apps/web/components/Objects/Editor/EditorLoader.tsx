@@ -21,9 +21,7 @@ interface EditorLoaderProps {
  * payload (activity + slim course + org with resolved features) in one request.
  *
  * Uses `useAuth().accessToken` rather than `useSession().data.tokens` so the
- * bootstrap fetch can race the `/users/session` call in parallel: the bare
- * access token is set the moment `/api/auth/refresh` resolves, while
- * `session.data` only populates after the subsequent `/users/session` call.
+ * bootstrap fetch can start as soon as Clerk returns a bearer token.
  */
 export default function EditorLoader({ courseid: _courseid, activityuuid }: EditorLoaderProps) {
   const { accessToken: access_token } = useAuth()

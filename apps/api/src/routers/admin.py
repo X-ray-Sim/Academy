@@ -16,6 +16,7 @@ from src.db.trails import TrailRead
 from src.db.users import UserRead
 from src.routers.auth import set_auth_cookies
 from src.security.auth import get_current_user
+from src.services.auth.clerk import CLERK_PROVIDER, get_auth_provider
 from src.services.admin.admin import (
     _require_api_token,
     _resolve_org_slug,
@@ -391,6 +392,15 @@ async def api_admin_issue_token(
     current_user=Depends(get_current_user),
     db_session: AsyncSession = Depends(get_db_session),
 ) -> TokenResponse:
+    if get_auth_provider() == CLERK_PROVIDER:
+        raise HTTPException(
+            status_code=410,
+            detail={
+                "code": "CLERK_AUTH_REQUIRED",
+                "message": "User JWT minting is disabled. Use Clerk session tokens.",
+            },
+        )
+
     token_user = _require_api_token(current_user)
     await _resolve_org_slug(org_slug, token_user, db_session)
     result = await issue_user_token(token_user, body.user_id, db_session)
@@ -910,6 +920,15 @@ async def api_admin_issue_magic_link(
     current_user=Depends(get_current_user),
     db_session: AsyncSession = Depends(get_db_session),
 ) -> MagicLinkResponse:
+    if get_auth_provider() == CLERK_PROVIDER:
+        raise HTTPException(
+            status_code=410,
+            detail={
+                "code": "CLERK_AUTH_REQUIRED",
+                "message": "Magic links are disabled. Use Clerk authentication.",
+            },
+        )
+
     token_user = _require_api_token(current_user)
     await _resolve_org_slug(org_slug, token_user, db_session)
     result = await issue_magic_link(
@@ -991,6 +1010,12 @@ async def api_admin_magic_consume(
     token: str = Query(..., description="Magic-link JWT"),
     db_session: AsyncSession = Depends(get_db_session),
 ):
+    if get_auth_provider() == CLERK_PROVIDER:
+        return _render_magic_link_error(
+            title="This sign-in link can't be used",
+            message="Magic links are disabled because this deployment uses Clerk authentication.",
+        )
+
     try:
         _user, access_token, refresh_token, redirect_to = await consume_magic_link_token(
             token=token,
