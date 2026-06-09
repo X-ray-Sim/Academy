@@ -15,6 +15,7 @@ import {
   getJwtExpirationTime,
   shouldRefreshClerkToken,
 } from '@lib/auth/clerkToken'
+import { getSessionStatusDuringRefresh } from '@lib/auth/sessionRefresh'
 import {
   getAPIUrl,
   getLEARNHOUSE_TOP_DOMAIN_VAL,
@@ -188,9 +189,7 @@ export function SessionProvider({
     }
 
     refreshPromiseRef.current = (async () => {
-      setStatus((currentStatus) => (
-        currentStatus === 'authenticated' && !force ? currentStatus : 'loading'
-      ))
+      setStatus(getSessionStatusDuringRefresh)
 
       try {
         let token = await getToken({ skipCache: Boolean(force) })
